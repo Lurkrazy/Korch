@@ -17,7 +17,7 @@ pip install tornado psutil 'xgboost<1.6.0' cloudpickle onnx onnx-graphsurgeon==0
 Install CUDA, CUDNN and LLVM first. Then install TVM with the following commands:
 
 ```bash
-git clone --recursive https://github.com/balamurugan15/tvm-kernel-mapper.git tvm
+git clone --recursive https://github.com/humuyan/tvm-korch tvm
 export TVM_HOME=`realpath tvm`
 export PYTHONPATH=$TVM_HOME/python:${PYTHONPATH}
 cd tvm
@@ -28,7 +28,7 @@ make -j4
 python -c "import tvm; print(tvm.__version__)"
 ```
 
-Showing `0.13.dev0` means that TVM has been installed correctly.
+Showing `0.11.dev0` means that TVM has been installed correctly.
 
 ### Clone and Compile Korch
 
