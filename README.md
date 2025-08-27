@@ -41,7 +41,22 @@ mv *.so ../framework
 
 ## Run Korch
 
-Korch takes an ONNX graph as input. See `cases/onnx-export/export.py` for ONNX export of benchmark models in the paper. 
+Korch takes an ONNX graph as input. See `cases/onnx-export/export.py` for ONNX export of benchmark models in the paper. For information on downloading pre-trained ONNX models, see [ONNX_MODEL_DOWNLOADS.md](ONNX_MODEL_DOWNLOADS.md).
+
+### Quick Start: Download a Pre-trained Model
+
+Use the included download script to get started with a pre-trained ONNX model:
+
+```bash
+# List available models
+python download_onnx_model.py --list-all
+
+# Download the candy style transfer model
+python download_onnx_model.py candy
+
+# Download to a specific location
+python download_onnx_model.py resnet50 --output models/resnet50.onnx
+``` 
 
 ### Operator Fission
 
