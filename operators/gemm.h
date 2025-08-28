@@ -36,8 +36,11 @@ public:
         ldb = transb ? n : k;
         ldc = m;
         cublasCreate(&cublas);
+        // 🎯 KORCH TENSOR CORE SELECTION: Enable TF32 tensor cores on A100
         if (tf32) {
             cublasSetMathMode(cublas, CUBLAS_TF32_TENSOR_OP_MATH);
+            // This enables tensor cores for GEMM operations on A100 GPUs
+            // Mixed precision: FP32 inputs/outputs, TF32 internal computation
         }
     }
     ~CUBLASGemm() {

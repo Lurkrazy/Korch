@@ -244,6 +244,7 @@ class CodeGenerator():
 
             if not params:
                 # Generate kernel launch code for memory-bound kernels
+                print(f"🔧 [CODEGEN] Generating TVM kernel launch for {kernel_name} (CUDA cores)")
                 gridDim_x, blockDim_x = self.get_kernel_launch_config(kernel_name)
                 output_formal_param = device_kernel_output_name
                 # ! Order of input is to be confirmed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -291,6 +292,7 @@ class CodeGenerator():
             else:
                 # Call vendor APIs for compute-bound kernels
                 if params['type'] == 'conv':
+                    print(f"🚀 [CODEGEN] Generating cuDNN convolution call for {kernel_name} (Tensor cores available)")
                     device_kernel_input_name = "device_" + kernel.inputs[0].name
                     input_channels_per_group = params['in_channels'] // params['groups']
                     out_height = (params['in_height'] + 2 * params['padding'] - params['dilation'] * (params['kernel_size'] - 1) - 1) // params['stride'] + 1
@@ -312,6 +314,8 @@ class CodeGenerator():
                         self.write_line(f'cudnnSetTensor4dDescriptor(bias_descriptor, OUTPUT_TENSOR_FORMAT, DATA_TYPE, 1, {params["out_channels"]}, 1, 1);')
                         self.write_line(f'cudnnSetActivationDescriptor(activation_descriptor, {"CUDNN_ACTIVATION_RELU" if params["mode"] == 2 else "CUDNN_ACTIVATION_IDENTITY"}, CUDNN_NOT_PROPAGATE_NAN, std::numeric_limits<float>::infinity());')
                         self.write_line(f'cudnnConvolutionBiasActivationForward(cudnn, &alpha, input_descriptor, {device_kernel_input_name}, kernel_descriptor, {weight_name}, convolution_descriptor, (cudnnConvolutionFwdAlgo_t){params["algo"]}, workspace, workspace_size, &beta, output_descriptor, {device_kernel_output_name}, bias_descriptor, {bias_name}, activation_descriptor, output_descriptor, {device_kernel_output_name});') 
+                elif params['type'] == 'matmul':
+                    print(f"⚡ [CODEGEN] Generating cuBLAS GEMM call for {kernel_name} (Tensor cores on A100)")
                 else:
                     print("Unsupported compute-bound kernel type")
                     exit(1)
