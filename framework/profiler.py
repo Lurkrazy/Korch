@@ -89,10 +89,13 @@ class MemBoundKernelProfiler(KernelProfiler):
         # If the kernel is not mem-bound, return INF
         if candidate_kernel.get_params() is not None:
             return INF
+        print(f"🔧 [KORCH DEBUG] Using TVM (CUDA cores) for memory-bound kernel: {candidate_kernel.get_onnx_name()}")
         candidate_kernel_graph = onnx.load(candidate_kernel.get_onnx_path())
         tvm_result = list(profile_main(self.target_info.get_device(), self.target_info.get_target(), self.target_info.get_rpc_config(), WORK_DIR=self.database_path, onnx_model=candidate_kernel_graph, DB_WIPE=False, MODEL_FILENAME=candidate_kernel.get_onnx_name()).values())
         if len(tvm_result) != 0:
-            return float(tvm_result[0][0]) * 1000
+            latency = float(tvm_result[0][0]) * 1000
+            print(f"   └─ TVM kernel latency: {latency:.3f} ms")
+            return latency
         else:
             return INF
 
@@ -107,15 +110,20 @@ class ConvKernelProfiler(KernelProfiler):
             or candidate_kernel.get_params()["type"] != "conv":
             return INF
         
+        print(f"🚀 [KORCH DEBUG] Using cuDNN (Tensor Cores available) for Conv kernel: {candidate_kernel.get_onnx_name()}")
         params = candidate_kernel.get_params()
         op_type = params.pop("type")
         min_time = INF
+        best_algo = -1
         for i in range(8):
             params["algo"] = i
             cur_t = profile_conv(**params)
-            if cur_t > 0:
-                min_time = min(min_time, cur_t)
+            if cur_t > 0 and cur_t < min_time:
+                min_time = cur_t
+                best_algo = i
         params["type"] = op_type
+        if best_algo >= 0:
+            print(f"   └─ cuDNN Conv algorithm {best_algo}, latency: {min_time:.3f} ms")
         return min_time
     
 
@@ -130,6 +138,9 @@ class GemmKernelProfiler(KernelProfiler):
             return INF
         
         params = candidate_kernel.get_params()
+        use_tensor_cores = self.target_info.get_target_device_name() == "a100"
+        print(f"⚡ [KORCH DEBUG] Using cuBLAS ({'Tensor Cores' if use_tensor_cores else 'CUDA Cores'}) for GEMM kernel: {candidate_kernel.get_onnx_name()}")
+        
         shape_a, shape_b = tuple(params["shapea"]), tuple(params["shapeb"])
         if len(shape_a) != len(shape_b):
             shape_a = (1, prod(shape_a[:-1]), shape_a[-1])
@@ -139,5 +150,6 @@ class GemmKernelProfiler(KernelProfiler):
             shape_b = (prod(shape_b[:-2]), shape_b[-2], shape_b[-1])
             assert shape_a[0] == shape_b[0]
         
-        result = profile_gemm(shape_a[0], shape_a[1], shape_b[2], shape_a[2], params["transa"], params["transb"], self.target_info.get_target_device_name() == "a100") # only enable tensor core on A100
+        result = profile_gemm(shape_a[0], shape_a[1], shape_b[2], shape_a[2], params["transa"], params["transb"], use_tensor_cores)
+        print(f"   └─ cuBLAS GEMM {'(TF32 Tensor Core)' if use_tensor_cores else '(CUDA Core)'}, latency: {result:.3f} ms")
         return result

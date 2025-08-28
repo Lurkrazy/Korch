@@ -407,8 +407,34 @@ def main(input_args: argparse.Namespace, target_info: Target, config: GraphConfi
         korch_solution = korch_solver.solve()
         e2e_latencies.append(korch_solution.get_latency())
         selected_kernel_info = [(x.get_onnx_graph(), x.get_params(), x.get_onnx_name()) for x in korch_solution.get_selected_kernels()]
+        
+        print(f"\n🎯 [KORCH DEBUG] === KERNEL ORCHESTRATION RESULT ===")
         print(f"Selected Kernels: {[selected_kernel_info[x][2] for x in korch_solution.get_execution_order()]}")
         print(f"Latencies: {[candidate_kernels_latencies[int(selected_kernel_info[x][2]) - 1] for x in korch_solution.get_execution_order()]}")
+        
+        print(f"\n📋 [KORCH DEBUG] === EXECUTION PLAN ===")
+        execution_order = korch_solution.get_execution_order()
+        for i, kernel_idx in enumerate(execution_order):
+            kernel_info = selected_kernel_info[kernel_idx]
+            kernel_graph, kernel_params, kernel_name = kernel_info
+            latency = candidate_kernels_latencies[int(kernel_name) - 1]
+            
+            if kernel_params is None:
+                compute_type = "TVM (CUDA Cores)"
+            elif kernel_params["type"] == "conv":
+                compute_type = "cuDNN (Tensor Cores available)"
+            elif kernel_params["type"] == "matmul":
+                device_name = target_info.get_target_device_name()
+                if device_name == "a100":
+                    compute_type = "cuBLAS (TF32 Tensor Cores)"
+                else:
+                    compute_type = "cuBLAS (CUDA Cores)"
+            else:
+                compute_type = "Unknown"
+                
+            print(f"  Step {i+1}: Kernel {kernel_name} → {compute_type} → {latency:.3f} ms")
+        print(f"📊 [KORCH DEBUG] Total optimized latency: {korch_solution.get_latency():.3f} ms")
+        print(f"🔀 [KORCH DEBUG] Heterogeneous execution mixing Tensor Cores + CUDA Cores\n")
 
         if input_args.code_output_dir is not None:
             # print out a clear line indicating the rest of the print out are codegen related
